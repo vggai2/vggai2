@@ -1,0 +1,80 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = 'your-region' // e.g., us-east-1
+        LAMBDA_FUNCTION_NAME = 'your-lambda-function-name'
+        LAMBDA_ALIAS_NAME = 'your-alias-name' // e.g., prod
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // Pull the latest code from GitHub
+                git branch: 'main', url: 'https://github.com/your-username/your-repo.git'
+            }
+        }
+        
+        stage('Install Dependencies') {
+            steps {
+                // If required, install dependencies (for example, if using Node.js Lambda)
+                sh 'npm install' // Adjust based on your Lambda runtime
+            }
+        }
+
+        stage('Package Lambda Code') {
+            steps {
+                // Package the code into a zip file
+                sh 'zip -r lambda_function.zip *'
+            }
+        }
+
+        stage('Update Lambda Function') {
+            steps {
+                // Update the Lambda function code with the new zip file
+                sh """
+                aws lambda update-function-code \\
+                    --function-name ${LAMBDA_FUNCTION_NAME} \\
+                    --zip-file fileb://lambda_function.zip \\
+                    --region ${AWS_REGION}
+                """
+            }
+        }
+
+        stage('Publish New Version') {
+            steps {
+                script {
+                    // Publish a new version and capture the version number
+                    def publishOutput = sh(script: """
+                        aws lambda publish-version \\
+                            --function-name ${LAMBDA_FUNCTION_NAME} \\
+                            --region ${AWS_REGION} \\
+                            --query 'Version' --output text
+                    """, returnStdout: true).trim()
+                    
+                    env.NEW_VERSION = publishOutput
+                }
+            }
+        }
+
+        stage('Update Alias') {
+            steps {
+                // Point the alias to the newly published version
+                sh """
+                aws lambda update-alias \\
+                    --function-name ${LAMBDA_FUNCTION_NAME} \\
+                    --name ${LAMBDA_ALIAS_NAME} \\
+                    --function-version ${NEW_VERSION} \\
+                    --region ${AWS_REGION}
+                """
+            }
+        }
+    }
+
+    post {
+        always {
+            // Clean up the zip file after execution
+            sh 'rm -f lambda_function.zip'
+        }
+    }
+}
