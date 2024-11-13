@@ -1,0 +1,47 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'LAMBDA_FOLDER', defaultValue: 'A', description: 'Folder to deploy (e.g., A, B, or C)')
+    }
+
+    environment {
+        ZIP_FILE = "lambda_${params.LAMBDA_FOLDER}.zip"
+    }
+
+    stages {
+        stage('Prepare Deployment Package') {
+            steps {
+                script {
+                    // Clean workspace to ensure no residual files from previous builds
+                    deleteDir()
+
+                    // Copy necessary files and folders to a temporary directory
+                    sh """
+                        mkdir -p deploy_package
+                        cp -r Handlers deploy_package/
+                        cp -r Utils deploy_package/
+                        cp -r Models deploy_package/
+                        cp ${params.LAMBDA_FOLDER}/lambda.py deploy_package/
+                    """
+                    
+                    // Create the zip file containing only the specified lambda folder and common directories
+                    sh """
+                        cd deploy_package
+                        zip -r ../${env.ZIP_FILE} .
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            archiveArtifacts artifacts: "${env.ZIP_FILE}", allowEmptyArchive: false
+            echo "Deployment package ${env.ZIP_FILE} created successfully."
+        }
+        cleanup {
+            deleteDir() // Clean up workspace after the build
+        }
+    }
+}
