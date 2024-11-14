@@ -1,0 +1,57 @@
+To create an IAM role that allows an AWS Lambda function to be updated, zipped, and published from a Jenkins pipeline running in a different AWS account, you'll need to set up a role that allows actions on Lambda functions, and allow cross-account access. Here’s an example IAM role policy setup:
+
+1. **IAM Role Policy**: This policy allows the role to perform the necessary Lambda operations.
+2. **Trust Policy**: This policy allows the specified AWS account (where Jenkins is hosted) to assume the role.
+
+### Step 1: Create the IAM Role Policy for Lambda Operations
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:PublishVersion",
+        "lambda:CreateAlias",
+        "lambda:UpdateAlias"
+      ],
+      "Resource": "arn:aws:lambda:<Region>:<Account-ID>:function:<Function-Name>"
+    }
+  ]
+}
+```
+
+- Replace `<Region>`, `<Account-ID>`, and `<Function-Name>` with your specific values.
+
+### Step 2: Create the Trust Policy for Cross-Account Access
+
+This trust policy allows the Jenkins account to assume the role:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::<Jenkins-Account-ID>:root"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+
+- Replace `<Jenkins-Account-ID>` with the AWS account ID of the account where Jenkins is running.
+
+### Summary of Steps
+
+1. Create a new IAM role with the name `LambdaUpdateRole`.
+2. Attach the Lambda role policy from Step 1 to `LambdaUpdateRole`.
+3. Attach the trust policy from Step 2 to `LambdaUpdateRole`.
+4. In Jenkins, configure the pipeline to assume this IAM role by specifying the role ARN and using AWS SDK or CLI commands to assume the role.
+
+This setup will allow Jenkins to assume the role and perform actions on Lambda functions, such as updating, publishing, and modifying alias weights.
