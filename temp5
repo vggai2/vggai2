@@ -1,0 +1,79 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = 'us-east-1' // Set your AWS region
+        LAMBDA_FUNCTION_NAME = 'my-lambda-function' // Replace with your Lambda function name
+        LAMBDA_PACKAGE = 'lambda-package.zip' // Replace with your Lambda package file name
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                echo "Checking out code from repository..."
+                git branch: 'main', url: 'https://github.com/your-repo/lambda-function.git'
+            }
+        }
+
+        stage('Build Package') {
+            steps {
+                echo "Building Lambda deployment package..."
+                sh '''
+                npm install
+                zip -r ${LAMBDA_PACKAGE} .
+                '''
+            }
+        }
+
+        stage('Update Lambda Function') {
+            steps {
+                echo "Updating Lambda function code..."
+                sh '''
+                aws lambda update-function-code \
+                    --function-name ${LAMBDA_FUNCTION_NAME} \
+                    --zip-file fileb://${LAMBDA_PACKAGE} \
+                    --region ${AWS_REGION}
+                '''
+            }
+        }
+
+        stage('Wait for Update Completion') {
+            steps {
+                echo "Waiting for Lambda function update to complete..."
+                sh '''
+                aws lambda wait function-updated \
+                    --function-name ${LAMBDA_FUNCTION_NAME} \
+                    --region ${AWS_REGION}
+                '''
+                echo "Lambda function update completed successfully!"
+            }
+        }
+
+        stage('Publish New Version') {
+            steps {
+                script {
+                    echo "Publishing a new version of the Lambda function..."
+                    def publishOutput = sh(script: '''
+                    aws lambda publish-version \
+                        --function-name ${LAMBDA_FUNCTION_NAME} \
+                        --region ${AWS_REGION}
+                    ''', returnStdout: true).trim()
+
+                    // Extract the version number from the output
+                    def versionNumber = sh(script: "echo '${publishOutput}' | jq -r .Version", returnStdout: true).trim()
+
+                    echo "Published Lambda Function Version: ${versionNumber}"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline completed successfully! Lambda function has been updated and a new version is published."
+        }
+        failure {
+            echo "Pipeline failed. Please check the logs for more details."
+        }
+    }
+}
