@@ -1,0 +1,64 @@
+import boto3
+import csv
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
+# Function to read the CSV and generate an HTML table
+def generate_html_table(csv_file):
+    with open(csv_file, 'r') as file:
+        reader = csv.reader(file)
+        rows = list(reader)
+        
+        # Extract header and first 10 rows
+        header = rows[0]
+        data = rows[1:11]
+        
+        # Build the HTML table
+        html = '<html><body>'
+        html += '<h2>Table Header</h2>'
+        html += '<table border="1" style="border-collapse: collapse;">'
+        html += '<tr>' + ''.join(f'<th>{col}</th>' for col in header) + '</tr>'
+        for row in data:
+            html += '<tr>' + ''.join(f'<td>{col}</td>' for col in row) + '</tr>'
+        html += '</table>'
+        html += '</body></html>'
+        
+        return html
+
+# Function to send email using AWS SES
+def send_email(sender, recipient, subject, html_content):
+    ses_client = boto3.client('ses', region_name='us-east-1')  # Replace with your region
+    msg = MIMEMultipart()
+    msg['Subject'] = subject
+    msg['From'] = sender
+    msg['To'] = recipient
+    
+    # Attach HTML content
+    msg.attach(MIMEText(html_content, 'html'))
+    
+    # Send email
+    response = ses_client.send_raw_email(
+        Source=sender,
+        Destinations=[recipient],
+        RawMessage={
+            'Data': msg.as_string()
+        }
+    )
+    return response
+
+# Main script
+if __name__ == "__main__":
+    # CSV file path
+    csv_file_path = 'your_file.csv'
+    
+    # Email details
+    sender_email = 'your_email@example.com'
+    recipient_email = 'recipient_email@example.com'
+    subject = 'CSV Data as HTML Table'
+    
+    # Generate HTML table
+    html_table = generate_html_table(csv_file_path)
+    
+    # Send email
+    response = send_email(sender_email, recipient_email, subject, html_table)
+    print("Email sent! Response:", response)
