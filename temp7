@@ -1,0 +1,59 @@
+Yes, if the file is already saved in the Lambda’s local storage, you can directly upload it to S3 using boto3. Here’s how you can do it:
+
+Updated Code to Upload Local File to S3
+
+import boto3
+
+def upload_file_to_s3(local_file_path, bucket_name, s3_file_key):
+    # Initialize S3 client
+    s3 = boto3.client('s3')
+    
+    try:
+        # Upload file
+        s3.upload_file(local_file_path, bucket_name, s3_file_key)
+        print(f"File uploaded to S3: {bucket_name}/{s3_file_key}")
+    except Exception as e:
+        print(f"Error uploading file to S3: {str(e)}")
+
+# Example usage
+def lambda_handler(event, context):
+    local_file_path = "/tmp/artdeco_image_report.csv"  # Local file path in Lambda
+    bucket_name = "your-bucket-name"
+    s3_file_key = "artdeco_image_report.csv"  # Key (name) for the file in S3
+
+    # Upload the file to S3
+    upload_file_to_s3(local_file_path, bucket_name, s3_file_key)
+
+    return {
+        "statusCode": 200,
+        "body": "File uploaded successfully."
+    }
+
+Key Points:
+
+	1.	Local File Path: AWS Lambda provides a temporary storage space in the /tmp directory where files can be written and read during execution.
+	•	In your case, replace /tmp/artdeco_image_report.csv with the path to the file saved in your Lambda function.
+	2.	S3 Client: The boto3 library’s upload_file method is used to upload the file to S3.
+	3.	Bucket and Key: Replace your-bucket-name with your actual S3 bucket name and artdeco_image_report.csv with the desired key (file name) in S3.
+
+IAM Permissions
+
+Ensure your Lambda execution role has the following permissions:
+	•	s3:PutObject
+
+Example IAM Policy:
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::<your-bucket-name>/*"
+    }
+  ]
+}
+
+Replace <your-bucket-name> with your bucket name.
+
+This approach is efficient because it avoids recreating the file in memory and directly uploads the existing local file. Let me know if you need further clarification!
