@@ -1,0 +1,135 @@
+To write unit test cases for your Lambda function, you need to isolate the function logic, mock dependencies (like the DbHandler and database queries), and verify that the function behaves as expected for different inputs and scenarios. Below is a structured guide and example code for writing the unit tests:
+
+Key Steps for Unit Testing
+	1.	Understand the Lambda Function:
+	•	Identify the input (event) and output (response).
+	•	Understand how the DbHandler and other external dependencies are used.
+	2.	Mock External Dependencies:
+	•	Use libraries like unittest.mock to mock DbHandler and other dependencies.
+	3.	Write Test Cases:
+	•	Test for different scenarios (e.g., valid input, invalid input, database errors).
+	4.	Use a Testing Framework:
+	•	Use unittest or pytest for structuring and running your tests.
+
+Example: Lambda Function Code
+
+main.py (Lambda function)
+
+from DbHandler import DbHandler
+
+def lambda_handler(event, context):
+    try:
+        # Extract query parameters
+        query_param = event.get("queryStringParameters", {}).get("param")
+        if not query_param:
+            return {
+                "statusCode": 400,
+                "body": "Missing query parameter 'param'"
+            }
+        
+        # Process the request
+        db_handler = DbHandler()
+        result = db_handler.query_database(query_param)
+        
+        # Build and return the response
+        return {
+            "statusCode": 200,
+            "body": result
+        }
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "body": str(e)
+        }
+
+Unit Test Code
+
+test_main.py
+
+import unittest
+from unittest.mock import patch, MagicMock
+from main import lambda_handler
+
+class TestLambdaHandler(unittest.TestCase):
+
+    @patch("main.DbHandler")
+    def test_valid_query_param(self, MockDbHandler):
+        # Mock the DbHandler's method
+        mock_db_handler = MagicMock()
+        mock_db_handler.query_database.return_value = "mocked_result"
+        MockDbHandler.return_value = mock_db_handler
+
+        # Define the event with query parameter
+        event = {
+            "queryStringParameters": {
+                "param": "test_param"
+            }
+        }
+
+        # Call the lambda function
+        response = lambda_handler(event, None)
+
+        # Assertions
+        self.assertEqual(response["statusCode"], 200)
+        self.assertEqual(response["body"], "mocked_result")
+        mock_db_handler.query_database.assert_called_once_with("test_param")
+
+    @patch("main.DbHandler")
+    def test_missing_query_param(self, MockDbHandler):
+        # Define the event without query parameter
+        event = {"queryStringParameters": {}}
+
+        # Call the lambda function
+        response = lambda_handler(event, None)
+
+        # Assertions
+        self.assertEqual(response["statusCode"], 400)
+        self.assertEqual(response["body"], "Missing query parameter 'param'")
+
+    @patch("main.DbHandler")
+    def test_db_handler_exception(self, MockDbHandler):
+        # Mock DbHandler to raise an exception
+        mock_db_handler = MagicMock()
+        mock_db_handler.query_database.side_effect = Exception("Database error")
+        MockDbHandler.return_value = mock_db_handler
+
+        # Define the event with query parameter
+        event = {
+            "queryStringParameters": {
+                "param": "test_param"
+            }
+        }
+
+        # Call the lambda function
+        response = lambda_handler(event, None)
+
+        # Assertions
+        self.assertEqual(response["statusCode"], 500)
+        self.assertEqual(response["body"], "Database error")
+
+if __name__ == "__main__":
+    unittest.main()
+
+Explanation of the Test Cases
+	1.	test_valid_query_param:
+	•	Tests a valid input case where the param is provided.
+	•	Mocks the DbHandler.query_database to return a predefined result.
+	•	Verifies that the response is correct and the database method is called with the right parameter.
+	2.	test_missing_query_param:
+	•	Tests the case where the required query parameter is missing.
+	•	Verifies that the function returns a 400 status code with an appropriate error message.
+	3.	test_db_handler_exception:
+	•	Simulates an exception in the DbHandler.query_database method.
+	•	Verifies that the Lambda function catches the exception and returns a 500 status code.
+
+Running the Tests
+
+Run the tests using the unittest command:
+
+python -m unittest test_main.py
+
+Alternatively, if you’re using pytest:
+
+pytest test_main.py
+
+This setup ensures your Lambda function is robust and behaves as expected in different scenarios while keeping external dependencies mocked for isolated testing.
