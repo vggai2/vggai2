@@ -1,0 +1,35 @@
+import unittest
+from unittest.mock import patch, MagicMock
+
+# Assuming the function is part of a module named `database_handler`
+from database_handler import get_questions_metadata
+
+class TestGetQuestionsMetadata(unittest.TestCase):
+    @patch("database_handler.get_mongo_client")
+    @patch("database_handler.all_secrets", {"db_name": "test_db"})
+    def test_get_questions_metadata(self, mock_get_mongo_client):
+        # Mock the MongoDB client and its collections
+        mock_client = MagicMock()
+        mock_db = MagicMock()
+        mock_collection = MagicMock()
+        
+        # Setting the mock chain
+        mock_get_mongo_client.return_value = mock_client
+        mock_client.__getitem__.return_value = mock_db
+        mock_db.__getitem__.return_value = {"en_us": mock_collection}
+        
+        # Mock the find method to return test data
+        mock_collection.find.return_value = [{"question": "Sample question"}]
+        
+        # Call the function with a test language
+        result = get_questions_metadata("en_us")
+        
+        # Assert the correct behavior
+        mock_get_mongo_client.assert_called_once()
+        mock_client.__getitem__.assert_called_with("test_db")
+        mock_db.__getitem__.assert_called_with("tadc_questions_collection")
+        mock_collection.find.assert_called_once()
+        self.assertEqual(result, [{"question": "Sample question"}])
+
+if __name__ == "__main__":
+    unittest.main()
