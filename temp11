@@ -1,0 +1,35 @@
+import unittest
+from mongomock import MongoClient
+from unittest.mock import patch
+
+# Assuming the function is part of a module named `database_handler`
+from database_handler import get_questions_metadata
+
+class TestGetQuestionsMetadata(unittest.TestCase):
+    @patch("database_handler.get_mongo_client")
+    @patch("database_handler.all_secrets", {"db_name": "test_db"})
+    def test_get_questions_metadata(self, mock_get_mongo_client):
+        # Use mongomock to create an in-memory MongoDB client
+        mock_client = MongoClient()
+        mock_db = mock_client["test_db"]
+        mock_collection = mock_db["tadc_questions_collection"]
+        
+        # Insert mock data into the mock collection
+        mock_collection.insert_many([
+            {"lang": "en_us", "question": "Sample question 1"},
+            {"lang": "en_us", "question": "Sample question 2"}
+        ])
+        
+        # Simulate the structure expected in the function
+        mock_get_mongo_client.return_value = mock_client
+        
+        # Call the function with a test language
+        result = get_questions_metadata("en_us")
+        
+        # Assert the result
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["question"], "Sample question 1")
+        self.assertEqual(result[1]["question"], "Sample question 2")
+
+if __name__ == "__main__":
+    unittest.main()
